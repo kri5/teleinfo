@@ -11,92 +11,86 @@ Licence MIT
 #include <stdlib.h>
 #include <string.h>
 
-#define TAILLE_MAX_CHAINE_ETIQ 8 // taille maximale pour la chaine de caractères d'une étiquette
-#define TAILLE_MAX_CHAINE_DONNEE 12 // taille maximale pour la chaine de caractères d'une donnée
-#define NB_MAX_GROUPES_DANS_TRAME 30 // nombre maximum de groupes (étiquette+donnée) dans une trame
-#define TELEINFO_CHAINE_INVALIDE "NNNNNNNNNNNN"
-#define TELEINFO_UINT_INVALIDE 65535
+#define LABEL_MAX_SIZE 8 // max size for a label
+#define DATA_MAX_SIZE 12 // max size for a data
+#define NB_GROUP_MAX 30 // max number of groups
+#define INVALID_STRING "NNNNNNNNNNNN"
+#define INVALID_UINT 65535
 
 typedef struct {
-    char etiquette[TAILLE_MAX_CHAINE_ETIQ+1]; // +1 pour ajouter un '\0' à la fin de la chaine
-    char donnee[TAILLE_MAX_CHAINE_DONNEE+1]; // idem
-} GroupeTeleInfo;
-    
+    char label[LABEL_MAX_SIZE + 1];
+    char data[DATA_MAX_SIZE+1];
+} TeleInfoGroup;
+
 class TeleInfo
 {
-  
-public:
-  
-  // Fonctions
-  TeleInfo();
-  bool decode(char c); // traiter un caractère reçu par la liaison TéléInfo
-  TeleInfo &operator << (char c) {decode(c); return *this;}
 
-  // adresse du compteur
-  inline char *adCompteur() { return _adCompteur; }
-  
-  // option tarifaire
-  inline char *opTarif() { return _opTarif; }
-  
-  // intensité souscrite (en A)
-  inline unsigned int iSousc() { return _iSousc; }
-  
-  // index option Heures Creuses (en Wh)
-  inline unsigned int indexHC() { return _indexHC; }
-  
-  // index option Heures Pleines (en Wh)
-  inline unsigned int indexHP() { return _indexHP; }
-  
-  // période tarifaire en cours
-  inline char *perTarif() { return _perTarif; }
-  
-  // intensité instantanée (en A)
-  inline unsigned int iInst() { return _iInst; }
-  
-  // avertissement de dépassement de puissance souscrite (en A)
-  inline char *avertDep() { return _avertDep; }
-  
-  // intensité maximale appelée (en A)
-  inline unsigned int iMax() { return _iMax; }
-  
-  // puissance apparente (en VA)
-  inline unsigned int pApp() { return _pApp; }
-  
-  // type d'horaire heures pleines heures creuses
-  inline char *typeHoraireHPHC() { return _typeHoraireHPHC; }
-  
-  // mot d'état du compteur
-  inline char *motEtat() { return _motEtat; }
+public:
+  TeleInfo();
+  bool decode(char c);
+  TeleInfo &operator << (char c)
+  {
+	  decode(c); return *this;
+  }
+
+  inline char* meterAddress() { return meter_address; }
+  inline char* rateOption() { return rate_option; }
+  inline unsigned int subscribedIntensity() { return subscribed_intensity; }
+  inline unsigned int offPeakHoursIndex() { return off_peak_hours_index; }
+  inline unsigned int peakHoursIndex() { return peak_hours_index; }
+  inline char *ratePeriod() { return rate_period; }
+  inline unsigned int instantIntensity() { return instant_intensity; }
+  inline char *overuseWarning() { return overuse_warning; }
+  inline unsigned int maxIntensity() { return max_intensity; }
+  inline unsigned int appearingPower() { return appearing_power; }
+  inline char *timeGroup() { return time_group; }
+  inline char *stateWord() { return state_word; }
 
 private:
-  enum {_0_ATTENDRE_DEBUT_TRAME=0, _1_ATTENDRE_DEBUT_GROUPE=1,
-  		_2_CREER_ETIQUETTE=2, _3_CREER_DONNEE=3, _4_VERIFIER_CHECKSUM=4,
-  		_5_ATTENDRE_GROUPE_OU_FIN_TRAME=5, _10_TRAITER_ERREUR=10};
+  enum {
+    WAIT_FOR_FRAME_BEGINING = 0,
+    WAIT_FOR_GROUP_START = 1,
+    CREATE_LABEL = 2,
+    CREATE_DATA = 3,
+    VERIFY_CHECKSUM = 4,
+    WAIT_FOR_GROUP_OR_FRAME_END = 5,
+    HANDLE_ERROR =10
+  };
 
   // propriétés
-  char _adCompteur[TAILLE_MAX_CHAINE_DONNEE], _new_adCompteur[TAILLE_MAX_CHAINE_DONNEE];
-  char _opTarif[TAILLE_MAX_CHAINE_DONNEE], _new_opTarif[TAILLE_MAX_CHAINE_DONNEE];
-  unsigned int _iSousc, _new_iSousc;
-  unsigned int _indexHC, _new_indexHC;
-  unsigned int _indexHP, _new_indexHP;
-  char _perTarif[TAILLE_MAX_CHAINE_DONNEE], _new_perTarif[TAILLE_MAX_CHAINE_DONNEE];
-  unsigned int  _iInst, _new_iInst;
-  char  _avertDep[TAILLE_MAX_CHAINE_DONNEE], _new_avertDep[TAILLE_MAX_CHAINE_DONNEE];
-  unsigned int _iMax, _new_iMax;
-  unsigned int _pApp, _new_pApp;
-  char _typeHoraireHPHC[TAILLE_MAX_CHAINE_DONNEE], _new_typeHoraireHPHC[TAILLE_MAX_CHAINE_DONNEE];
-  char _motEtat[TAILLE_MAX_CHAINE_DONNEE], _new_motEtat[TAILLE_MAX_CHAINE_DONNEE];
+  char meter_address[DATA_MAX_SIZE];
+  char _new_adCompteur[DATA_MAX_SIZE];
+  char rate_option[DATA_MAX_SIZE];
+  char _new_opTarif[DATA_MAX_SIZE];
+  unsigned int subscribed_intensity;
+  unsigned int _new_iSousc;
+  unsigned int off_peak_hours_index;
+  unsigned int _new_indexHC;
+  unsigned int peak_hours_index;
+  unsigned int _new_indexHP;
+  char rate_period[DATA_MAX_SIZE];
+  char _new_perTarif[DATA_MAX_SIZE];
+  unsigned int instant_intensity;
+  unsigned int _new_iInst;
+  char  overuse_warning[DATA_MAX_SIZE];
+  char _new_avertDep[DATA_MAX_SIZE];
+  unsigned int max_intensity;
+  unsigned int _new_iMax;
+  unsigned int appearing_power;
+  unsigned int _new_pApp;
+  char time_group[DATA_MAX_SIZE];
+  char _new_typeHoraireHPHC[DATA_MAX_SIZE];
+  char state_word[DATA_MAX_SIZE];
+  char _new_motEtat[DATA_MAX_SIZE];
 
-  // variables de la machine à états de décodage de la trame
-  unsigned int _etat, _nbCarEtat2, _nbCarEtat3, _nbCarEtat4;
-  char _etiquette[TAILLE_MAX_CHAINE_ETIQ];
-  char _donnee[TAILLE_MAX_CHAINE_DONNEE];
+  unsigned int state, _nbCarEtat2, _nbCarEtat3, _nbCarEtat4;
+  char label[LABEL_MAX_SIZE];
+  char data[DATA_MAX_SIZE];
   char _checksum;
-  GroupeTeleInfo _tableauGroupes[NB_MAX_GROUPES_DANS_TRAME];
-  unsigned int _nbGroupes; 
+  TeleInfoGroup groups[NB_GROUP_MAX];
+  unsigned int group_numbers;
 
-  // fonctions internes
-  void affecterVariables();
+  void setVariables();
 };
 
 #endif

@@ -8,188 +8,188 @@ Licence MIT
 
 #include "TeleInfo.h"
 
-//définition des étiquettes
-#define _ETIQ_ADCOMPTEUR	"ADCO"
-#define _ETIQ_OPTARIF		"OPTARIF"
-#define _ETIQ_ISOUSC		"ISOUSC"
-#define _ETIQ_INDEXHC		"HCHC"
-#define _ETIQ_INDEXHP		"HCHP"
-#define _ETIQ_PERTARIF		"PTEC"
-#define _ETIQ_IINST			"IINST"
-#define _ETIQ_AVERTDEP		"ADPS"
-#define _ETIQ_IMAX			"IMAX"
-#define _ETIQ_PAPP			"PAPP"
-#define _ETIQ_TYPEHORHPHC	"HHPHC"
-#define _ETIQ_MOTETAT		"MOTDETAT"
+//definition of labels
+#define _LABEL_METER_ADDRESS            "ADCO"
+#define _LABEL_RATE_OPTION              "OPTARIF"
+#define _LABEL_SUBSCRIBED_INTENSITY     "ISOUSC"
+#define _LABEL_OFF_PEAK_HOURS           "HCHC"
+#define _LABEL_PEAK_HOURS               "HCHP"
+#define _LABEL_ONGOING_RATE_PERIOD      "PTEC"
+#define _LABEL_INSTANT_INTENSITY        "IINST"
+#define _LABEL_WARNING_OVERUSE          "ADPS"
+#define _LABEL_MAX_INTENSITY            "IMAX"
+#define _LABEL_APPEARING_POWER          "PAPP"
+#define _LABEL_TIMEGROUP                "HHPHC"
+#define _LABEL_STATE_WORD               "MOTDETAT"
 
-  
+
 TeleInfo::TeleInfo()
-  :  _iSousc(TELEINFO_UINT_INVALIDE)
-  ,  _indexHC(TELEINFO_UINT_INVALIDE)
-  ,  _indexHP(TELEINFO_UINT_INVALIDE)
-  ,  _iInst(TELEINFO_UINT_INVALIDE)
-  ,  _iMax(TELEINFO_UINT_INVALIDE)
-  ,  _pApp(TELEINFO_UINT_INVALIDE)
+  :  subscribed_intensity(INVALID_UINT)
+  ,  off_peak_hours_index(INVALID_UINT)
+  ,  peak_hours_index(INVALID_UINT)
+  ,  instant_intensity(INVALID_UINT)
+  ,  max_intensity(INVALID_UINT)
+  ,  appearing_power(INVALID_UINT)
 {
-  _adCompteur[0]=0;
-  _opTarif[0]=0;
-  _perTarif[0]=0;
-  _avertDep[0]=0;
-  _typeHoraireHPHC[0]=0;
-  _motEtat[0]=0;
+  meter_address[0] = 0;
+  rate_option[0] = 0;
+  rate_period[0] = 0;
+  overuse_warning[0] = 0;
+  time_group[0] = 0;
+  state_word[0] = 0;
   _nbCarEtat2 = 0;
   _nbCarEtat3 = 0;
   _nbCarEtat4 = 0;
 }
 
-//
-// méthodes publiques
-//
-
 bool TeleInfo::decode(char c)
 {
-  bool trame_valide = false;
-  
-  switch(_etat)
+  bool is_frame_valid = false;
+
+  switch(this->state)
   {
-  case _0_ATTENDRE_DEBUT_TRAME:
-    if (c == 0x02) _etat=_1_ATTENDRE_DEBUT_GROUPE; 
-    // on reste dans l'état 0 si on n'a pas reçu le caractère de début de trame
+  case WAIT_FOR_FRAME_BEGINING:
+    if (c == 0x02)
+		this->state = WAIT_FOR_GROUP_START;
+    // we stay in this state while we have not received the begin character
     break;
-  
-  case _1_ATTENDRE_DEBUT_GROUPE:
+
+  case WAIT_FOR_GROUP_START:
     if (c == 0x0A) {
-      _nbGroupes = 0;
-      memset(_tableauGroupes,0,sizeof(_tableauGroupes)); // RAZ tableau des groupes
-      _etat=_2_CREER_ETIQUETTE;
+      this->group_numbers = 0;
+      memset(this->groups, 0, sizeof(this->groups)); // Reset the array
+      this->state = CREATE_LABEL;
     }
-    else {_etat=_10_TRAITER_ERREUR;}
+    else
+		state = HANDLE_ERROR;
     break;
-  
-  case _2_CREER_ETIQUETTE:
-    if (_nbCarEtat2 == 0) // on arrive pour la première fois dans l'état 2
+
+  case CREATE_LABEL:
+    if (_nbCarEtat2 == 0)
     {
-      memset(_etiquette,0,sizeof(_etiquette)); // RAZ étiquette
+      memset(label, 0, sizeof(label)); // Reset the label
     }
-    
-    if (c == 0x20) // fin de l'étiquette, on passe à l'état suivant
+
+    if (c == 0x20) // end of the label
     {
       _nbCarEtat2 = 0;
-      _etat=_3_CREER_DONNEE;
+      this->state = CREATE_DATA;
     }
-    else if (_nbCarEtat2 < TAILLE_MAX_CHAINE_ETIQ)
+    else if (_nbCarEtat2 < LABEL_MAX_SIZE)
     {
-      _etiquette[_nbCarEtat2]=c; // concaténation avec le caractère reçu
+      label[_nbCarEtat2] = c;
       _nbCarEtat2 += 1;
     }
     else
     {
       _nbCarEtat2 = 0;
-      _etat=_10_TRAITER_ERREUR;
+      state = HANDLE_ERROR;
     }
     break;
-    
-  case _3_CREER_DONNEE:
-    if (_nbCarEtat3 == 0) // on arrive pour la première fois dans l'état 3
+
+  case CREATE_DATA:
+    if (_nbCarEtat3 == 0)
     {
-      memset(_donnee,0,sizeof(_donnee)); // RAZ donnée
+      memset(this->data,0,sizeof(this->data)); // reset data
     }
-    
-    if (c == 0x20) // fin de la donnée, on passe à l'état suivant
+
+    if (c == 0x20) // end of data
     {
       _nbCarEtat3 = 0;
-      _etat=_4_VERIFIER_CHECKSUM;
+      this->state = VERIFY_CHECKSUM;
     }
-    else if (_nbCarEtat3 < TAILLE_MAX_CHAINE_DONNEE)
+    else if (_nbCarEtat3 < DATA_MAX_SIZE)
     {
-      _donnee[_nbCarEtat3]=c; // concaténation avec le caractère reçu
+      data[_nbCarEtat3] = c;
       _nbCarEtat3 += 1;
     }
     else
     {
       _nbCarEtat3 = 0;
-      _etat=_10_TRAITER_ERREUR;
+      state = HANDLE_ERROR;
     }
     break;
-    
-  case _4_VERIFIER_CHECKSUM:
-    if (_nbCarEtat4 == 0) // on arrive pour la première fois dans l'état 4
+
+  case VERIFY_CHECKSUM:
+    if (_nbCarEtat4 == 0)
     {
       _checksum = c;
       _nbCarEtat4 += 1;
     }
-    else if (c == 0x0D) // fin du checksum, on vérifie et on passe à l'état suivant
+    else if (c == 0x0D) // end of checksum
     {
       _nbCarEtat4 = 0;
-      // TODO : vérification du checksum
-      if (_nbGroupes >= NB_MAX_GROUPES_DANS_TRAME) // on ne doit pas dépasser la capacité du tableau des groupes
+      // TODO : verify checksum
+      if (group_numbers >= NB_GROUP_MAX)
       {
-        _etat=_10_TRAITER_ERREUR;
+        state=HANDLE_ERROR;
       }
       else
-      { // on ajoute le groupe dans le tableau
-        memcpy(_tableauGroupes[_nbGroupes].etiquette,_etiquette,sizeof(_etiquette));
-        memcpy(_tableauGroupes[_nbGroupes].donnee,_donnee,sizeof(_donnee));
-        _nbGroupes += 1;
-        _etat=_5_ATTENDRE_GROUPE_OU_FIN_TRAME; // et on passe à la suite
+      {
+        memcpy(groups[group_numbers].label,label,sizeof(label));
+        memcpy(groups[group_numbers].data,data,sizeof(data));
+        group_numbers += 1;
+        state = WAIT_FOR_GROUP_OR_FRAME_END;
       }
     }
     else
     {
       _nbCarEtat4 = 0;
-      _etat=_10_TRAITER_ERREUR;
+      state = HANDLE_ERROR;
     }
     break;
-    
-  case _5_ATTENDRE_GROUPE_OU_FIN_TRAME:
-    if (c == 0x0A) {_etat=_2_CREER_ETIQUETTE;} // début d'un nouveau groupe
-    else if (c == 0x03) // fin de la trame
-    { // TRAME VALIDE !
-      trame_valide = true;
-      affecterVariables();
-      _etat=_0_ATTENDRE_DEBUT_TRAME;
+
+  case WAIT_FOR_GROUP_OR_FRAME_END:
+    if (c == 0x0A) // start of a new group
+	{
+		state = CREATE_LABEL;
+	}
+    else if (c == 0x03) // end of frame
+    { // valid frame
+      is_frame_valid = true;
+      setVariables();
+      this->state = WAIT_FOR_FRAME_BEGINING;
     }
-    else {_etat=_10_TRAITER_ERREUR;}
+    else
+	{
+		this->state = HANDLE_ERROR;
+	}
     break;
-    
-  case _10_TRAITER_ERREUR:
-    // erreur
-    _etat=_0_ATTENDRE_DEBUT_TRAME;
+
+  case HANDLE_ERROR:
+    // error
+    state = WAIT_FOR_FRAME_BEGINING;
     break;
   }
 
-  return trame_valide;
+  return is_frame_valid;
 }
 
-//
-// fonctions internes
-//
-
-void TeleInfo::affecterVariables()
+void TeleInfo::setVariables()
 {
   unsigned int i;
-  
-  for (i=0; i<_nbGroupes; i+=1)
+
+  for (i=0; i < group_numbers; i+=1)
   {
-	if (strcmp(_tableauGroupes[i].etiquette,_ETIQ_ADCOMPTEUR) == 0)
+	if (strcmp(groups[i].label,_LABEL_METER_ADDRESS) == 0)
 	{
-  	    memcpy(_adCompteur,_tableauGroupes[i].donnee,sizeof(_adCompteur));
+  	    memcpy(meter_address,groups[i].data,sizeof(meter_address));
   	}
-  	else if (strcmp(_tableauGroupes[i].etiquette,_ETIQ_PAPP) == 0)
+  	else if (strcmp(groups[i].label,_LABEL_APPEARING_POWER) == 0)
   	{
-  		_pApp=(unsigned int) atoi(_tableauGroupes[i].donnee);
+  		appearing_power=(unsigned int) atoi(groups[i].data);
   	}
-  	else if (strcmp(_tableauGroupes[i].etiquette,_ETIQ_IINST) == 0)
+  	else if (strcmp(groups[i].label,_LABEL_INSTANT_INTENSITY) == 0)
   	{
-  		_iInst=(unsigned int) atoi(_tableauGroupes[i].donnee);
+  		instant_intensity=(unsigned int) atoi(groups[i].data);
   	}
-  	else if (strcmp(_tableauGroupes[i].etiquette,_ETIQ_INDEXHC) == 0)
+  	else if (strcmp(groups[i].label,_LABEL_OFF_PEAK_HOURS) == 0)
   	{
-  		_indexHC=(unsigned int) atoi(_tableauGroupes[i].donnee);
+  		off_peak_hours_index=(unsigned int) atoi(groups[i].data);
   	}
-  	else if (strcmp(_tableauGroupes[i].etiquette,_ETIQ_INDEXHP) == 0)
+  	else if (strcmp(groups[i].label,_LABEL_PEAK_HOURS) == 0)
   	{
-  		_indexHP=(unsigned int) atoi(_tableauGroupes[i].donnee);
+  		peak_hours_index=(unsigned int) atoi(groups[i].data);
   	}
   }
 }
