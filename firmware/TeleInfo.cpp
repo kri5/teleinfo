@@ -40,129 +40,155 @@ TeleInfo::TeleInfo()
   _nbCarEtat2 = 0;
   _nbCarEtat3 = 0;
   _nbCarEtat4 = 0;
+  currentState = &TeleInfo::waitForFrameBegining;
+}
+
+bool TeleInfo::handleError()
+{
+	this->currentState = &TeleInfo::waitForFrameBegining;
+	return true;
+}
+
+bool TeleInfo::waitForFrameBegining(char c)
+{
+	if (c == 0x02)
+	{
+		this->currentState = &TeleInfo::waitForGroupStart;
+		return true;
+	}
+	return false;
+}
+
+bool TeleInfo::waitForGroupStart(char c)
+{
+	if (c == 0x0A)
+	{
+		this->group_numbers = 0;
+		memset(this->groups, 0, sizeof(this->groups)); // Reset the array
+		this->currentState = &TeleInfo::createLabel;
+	}
+	return true;
+}
+
+bool TeleInfo::createLabel(char c)
+{
+	if (_nbCarEtat2 == 0)
+	{
+		memset(label, 0, sizeof(label)); // Reset the label
+	}
+	if (c == 0x20) // end of the label
+	{
+		_nbCarEtat2 = 0;
+		this->currentState = &TeleInfo::createData;
+	}
+	else if (_nbCarEtat2 < LABEL_MAX_SIZE)
+	{
+		label[_nbCarEtat2] = c;
+		_nbCarEtat2 += 1;
+	}
+	else
+	{
+		_nbCarEtat2 = 0;
+		return false;
+	}
+	return true;
+}
+
+bool TeleInfo::createData(char c)
+{
+	if (_nbCarEtat3 == 0)
+	{
+		memset(this->data, 0, sizeof(this->data)); // reset data
+	}
+	if (c == 0x20) // end of data
+	{
+		_nbCarEtat3 = 0;
+		this->currentState = &TeleInfo::verifyChecksum;
+	}
+	else if (_nbCarEtat3 < DATA_MAX_SIZE)
+	{
+		data[_nbCarEtat3] = c;
+		_nbCarEtat3 += 1;
+	}
+	else
+	{
+		_nbCarEtat3 = 0;
+		return false;
+	}
+	return true;
+}
+
+bool TeleInfo::verifyChecksum(char c)
+{
+	if (_nbCarEtat4 == 0)
+	{
+		_checksum = c;
+		_nbCarEtat4 += 1;
+	}
+	else if (c == 0x0D) // end of checksum
+	{
+		_nbCarEtat4 = 0;
+    int i = 0;
+    unsigned char sum = 0x20;
+    for (i = 0; label[i] != 0; i++)
+      sum += label[i];
+    for (i = 0; data[i] != 0; i++)
+      sum += data[i];
+    sum = (sum & 0x3F) + 0x20;
+    if (sum != _checksum)
+    {
+      _nbCarEtat4 = 0;
+      this->currentState = &TeleInfo::waitForGroupOrFrameEnd;
+    }
+		if (group_numbers >= NB_GROUP_MAX)
+		{
+			return false;
+		}
+		else
+		{
+			memcpy(groups[group_numbers].label, label, sizeof(label));
+			memcpy(groups[group_numbers].data, data, sizeof(data));
+			group_numbers += 1;
+      _nbCarEtat4 = 0;
+			this->currentState = &TeleInfo::waitForGroupOrFrameEnd;
+		}
+	}
+	else
+	{
+		_nbCarEtat4 = 0;
+		return false;
+	}
+	return true;
+}
+
+bool TeleInfo::waitForGroupOrFrameEnd(char c)
+{
+	if (c == 0x0A) // start of a new group
+	{
+		this->currentState = &TeleInfo::createLabel;
+	}
+	else if (c == 0x03) // end of frame
+	{ // valid frame
+		is_frame_valid = true;
+		setVariables();
+		this->currentState = &TeleInfo::waitForFrameBegining;
+	}
+	else
+	{
+		return false;
+	}
+	return true;
 }
 
 bool TeleInfo::decode(char c)
 {
-  bool is_frame_valid = false;
-
-  switch(this->state)
+  this->is_frame_valid = false;
+  if (!(this->*currentState)(c))
   {
-  case WAIT_FOR_FRAME_BEGINING:
-    if (c == 0x02)
-		this->state = WAIT_FOR_GROUP_START;
-    // we stay in this state while we have not received the begin character
-    break;
-
-  case WAIT_FOR_GROUP_START:
-    if (c == 0x0A) {
-      this->group_numbers = 0;
-      memset(this->groups, 0, sizeof(this->groups)); // Reset the array
-      this->state = CREATE_LABEL;
-    }
-    else
-		state = HANDLE_ERROR;
-    break;
-
-  case CREATE_LABEL:
-    if (_nbCarEtat2 == 0)
-    {
-      memset(label, 0, sizeof(label)); // Reset the label
-    }
-
-    if (c == 0x20) // end of the label
-    {
-      _nbCarEtat2 = 0;
-      this->state = CREATE_DATA;
-    }
-    else if (_nbCarEtat2 < LABEL_MAX_SIZE)
-    {
-      label[_nbCarEtat2] = c;
-      _nbCarEtat2 += 1;
-    }
-    else
-    {
-      _nbCarEtat2 = 0;
-      state = HANDLE_ERROR;
-    }
-    break;
-
-  case CREATE_DATA:
-    if (_nbCarEtat3 == 0)
-    {
-      memset(this->data,0,sizeof(this->data)); // reset data
-    }
-
-    if (c == 0x20) // end of data
-    {
-      _nbCarEtat3 = 0;
-      this->state = VERIFY_CHECKSUM;
-    }
-    else if (_nbCarEtat3 < DATA_MAX_SIZE)
-    {
-      data[_nbCarEtat3] = c;
-      _nbCarEtat3 += 1;
-    }
-    else
-    {
-      _nbCarEtat3 = 0;
-      state = HANDLE_ERROR;
-    }
-    break;
-
-  case VERIFY_CHECKSUM:
-    if (_nbCarEtat4 == 0)
-    {
-      _checksum = c;
-      _nbCarEtat4 += 1;
-    }
-    else if (c == 0x0D) // end of checksum
-    {
-      _nbCarEtat4 = 0;
-      // TODO : verify checksum
-      if (group_numbers >= NB_GROUP_MAX)
-      {
-        state=HANDLE_ERROR;
-      }
-      else
-      {
-        memcpy(groups[group_numbers].label,label,sizeof(label));
-        memcpy(groups[group_numbers].data,data,sizeof(data));
-        group_numbers += 1;
-        state = WAIT_FOR_GROUP_OR_FRAME_END;
-      }
-    }
-    else
-    {
-      _nbCarEtat4 = 0;
-      state = HANDLE_ERROR;
-    }
-    break;
-
-  case WAIT_FOR_GROUP_OR_FRAME_END:
-    if (c == 0x0A) // start of a new group
-	{
-		state = CREATE_LABEL;
-	}
-    else if (c == 0x03) // end of frame
-    { // valid frame
-      is_frame_valid = true;
-      setVariables();
-      this->state = WAIT_FOR_FRAME_BEGINING;
-    }
-    else
-	{
-		this->state = HANDLE_ERROR;
-	}
-    break;
-
-  case HANDLE_ERROR:
-    // error
-    state = WAIT_FOR_FRAME_BEGINING;
-    break;
+	  this->handleError();
   }
 
-  return is_frame_valid;
+  return this->is_frame_valid;
 }
 
 void TeleInfo::setVariables()

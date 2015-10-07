@@ -47,17 +47,18 @@ public:
   inline char *stateWord() { return state_word; }
 
 private:
-  enum {
-    WAIT_FOR_FRAME_BEGINING = 0,
-    WAIT_FOR_GROUP_START = 1,
-    CREATE_LABEL = 2,
-    CREATE_DATA = 3,
-    VERIFY_CHECKSUM = 4,
-    WAIT_FOR_GROUP_OR_FRAME_END = 5,
-    HANDLE_ERROR =10
-  };
+  bool waitForFrameBegining(char c);
+  bool waitForGroupStart(char c);
+  bool createLabel(char c);
+  bool createData(char c);
+  bool verifyChecksum(char c);
+  bool waitForGroupOrFrameEnd(char c);
+  bool handleError();
+
+  bool (TeleInfo::*currentState)(char c);
 
   // propriétés
+  bool is_frame_valid;
   char meter_address[DATA_MAX_SIZE];
   char _new_adCompteur[DATA_MAX_SIZE];
   char rate_option[DATA_MAX_SIZE];
@@ -83,7 +84,7 @@ private:
   char state_word[DATA_MAX_SIZE];
   char _new_motEtat[DATA_MAX_SIZE];
 
-  unsigned int state, _nbCarEtat2, _nbCarEtat3, _nbCarEtat4;
+  unsigned int _nbCarEtat2, _nbCarEtat3, _nbCarEtat4;
   char label[LABEL_MAX_SIZE];
   char data[DATA_MAX_SIZE];
   char _checksum;
