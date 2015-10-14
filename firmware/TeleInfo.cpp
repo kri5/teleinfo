@@ -23,13 +23,12 @@
 #define _LABEL_STATE_WORD               "MOTDETAT"
 
 
-  TeleInfo::TeleInfo()
-  :  subscribed_intensity(INVALID_UINT)
-  ,  off_peak_hours_index(INVALID_UINT)
-  ,  peak_hours_index(INVALID_UINT)
-  ,  instant_intensity(INVALID_UINT)
-  ,  max_intensity(INVALID_UINT)
-     ,  appearing_power(INVALID_UINT)
+TeleInfo::TeleInfo()
+{
+  this->reset();
+}
+
+void TeleInfo::reset()
 {
   meter_address[0] = 0;
   rate_option[0] = 0;
@@ -40,12 +39,17 @@
   _nbCarEtat2 = 0;
   _nbCarEtat3 = 0;
   _nbCarEtat4 = 0;
-  currentState = &TeleInfo::waitForFrameBegining;
+  subscribed_intensity = INVALID_UINT;
+  off_peak_hours_index = INVALID_UINT;
+  peak_hours_index = INVALID_UINT;
+  instant_intensity = INVALID_UINT;
+  max_intensity = INVALID_UINT;
+  this->currentState = &TeleInfo::waitForFrameBegining;
 }
 
 bool TeleInfo::handleError()
 {
-  this->currentState = &TeleInfo::waitForFrameBegining;
+  this->reset();
   return true;
 }
 
@@ -56,6 +60,7 @@ bool TeleInfo::waitForFrameBegining(char c)
     this->currentState = &TeleInfo::waitForGroupStart;
     return true;
   }
+  this->reset();
   return false;
 }
 
@@ -187,7 +192,6 @@ bool TeleInfo::decode(char c)
   {
     this->handleError();
   }
-
   return this->is_frame_valid;
 }
 

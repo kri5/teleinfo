@@ -47,6 +47,7 @@ class TeleInfo
     inline char *stateWord() { return state_word; }
 
   private:
+    void reset();
     bool waitForFrameBegining(char c);
     bool waitForGroupStart(char c);
     bool createLabel(char c);
